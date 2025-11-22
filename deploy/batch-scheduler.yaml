@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: batch-scheduler-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: batch-scheduler
+  namespace: batch-scheduler-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: batch-scheduler
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods/binding", "pods/status"]
+    verbs: ["create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: batch-scheduler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: batch-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: batch-scheduler
+    namespace: batch-scheduler-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-scheduler
+  namespace: batch-scheduler-system
+  labels:
+    app: batch-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-scheduler
+  template:
+    metadata:
+      labels:
+        app: batch-scheduler
+    spec:
+      serviceAccountName: batch-scheduler
+      containers:
+        - name: batch-scheduler
+          image: ghcr.io/example/batch-scheduler:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--scheduler-name=batch-scheduler"
+            - "--gang-label=batch.scheduling.k8s.io/gang"
+            - "--min-available-annotation=batch.scheduling.k8s.io/min-available"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
